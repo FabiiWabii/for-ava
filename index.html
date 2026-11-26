@@ -34,7 +34,7 @@ const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]
 const pts=[];
 // generic curved petal/leaf surface
 function surface(o){
-  const {a,L,Wd,th0,th1,cup,col,nu=36,nv=16}=o;
+  const {a,L,Wd,th0,th1,cup,col,nu=36,nv=20}=o;
   const P=(u,v)=>{
     let r=0,h=0;const n=12;
     for(let i=0;i<n;i++){const t=(i+.5)/n*u,th=th0+th1*t;r+=Math.sin(th)*u/n;h+=Math.cos(th)*u/n}
@@ -65,6 +65,9 @@ function petalColor(pal,k){return(u,v)=>{
   if(t<.07)c=mix(c,[255,255,255],.35);
   if(u<.5&&hash(Math.floor(u*60),Math.floor((v+1)*30),k)>.975)c=[235,130,30];
   if(pal.spot&&u>.12&&u<.65&&t<.85&&hash(Math.floor(u*10),Math.floor((v+1)*3),k)>.78)c=pal.spot;
+  if(pal.spot&&c===pal.spot&&hash(Math.floor(u*40),Math.floor((v+1)*18),k+7)>.55)c=mix(pal.spot,[90,10,50],.5);
+  const ao=.72+.28*sm(0,.35,u);c=[c[0]*ao,c[1]*ao,c[2]*ao];
+  if(u<.38&&t<.09)c=mix(c,[205,235,110],.6*(1-u/.38));
   if(t>.8||u>.95){c=mix(c,[70,10,45],.5);c.e=1;}
   return c;}}
 
@@ -463,7 +466,7 @@ function frame(t){
   ctx.textAlign='left';ctx.font=fs+'px ui-monospace,Menlo,Consolas,monospace';
   requestAnimationFrame(frame);
 }
-const SA='718798c596f7a2e28469011b9d401143',CA='8e374f450a638eb45d15ba63be9ff12b3895c48d97ea89196509f126058303a0',SB='a903f9418b5566202d1297a0f70266a8',CB='0f9403a5f18d4e619b2fbc5667954453fa9af98d6d17b459f6f4c0a200692c6e',IV='a962d1027c531971a41801cc',CT='c90d4672a65ec23af8436987909ca6fabf847ee1a46e0f69fd884a0d16c95b1c1a3b4b5b1860e937e271199de408fa4ee9bbeb48f15ed4522d5ca0e626a605cf024f1916f6ade8315e6133b4c73639fbc070908999784a30b07f7eb7aaf05b79a25e4031bfe8df3db9492a66e4dc5d350338';
+const SA='718798c596f7a2e28469011b9d401143',CA='8e374f450a638eb45d15ba63be9ff12b3895c48d97ea89196509f126058303a0',SB='a903f9418b5566202d1297a0f70266a8',CB='0f9403a5f18d4e619b2fbc5667954453fa9af98d6d17b459f6f4c0a200692c6e',IV='a962d1027c531971a41801cc',CT='c90d4672a65ec23af8436987909ca6fabf847ee1a46e0f69fd884a0d16c95b1c1a3b4b5b1860e937e271199de408fa4ee9bbeb48f15ed4522d5ca0e626a605cf024f1916f6ade8315e6133b4c73639fbc070908999784a30b07f7eb7aaf05b79a25e4031bfe8df3db9492a66e4dc5d350338',IV2='62c3c2b6bda568f158443fd9',CT2='041acbbc1cc06df9c5137f7c9242cde886f0129eb086a57579195b1c75bb938ea22bad78ffb51db15c4aa05c915e670cf044697f0c888ba6bfc1da59bc86aefabf70288cbcf533b556d585186d5c6c35ae9b3ab899bb81106e5239c279ca654ea4a8';
 const hx=b=>[...b].map(x=>x.toString(16).padStart(2,'0')).join(''),fromHex=h=>new Uint8Array(h.match(/../g).map(x=>parseInt(x,16)));
 async function derive(code,salt){const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(code),'PBKDF2',false,['deriveBits']);return new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt:fromHex(salt),iterations:150000,hash:'SHA-256'},k,512));}
 async function tryCode(dg){
@@ -471,7 +474,8 @@ async function tryCode(dg){
   if(hx(a.slice(0,32))===CA){const key=await crypto.subtle.importKey('raw',a.slice(32),'AES-GCM',false,['decrypt']);
     const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:fromHex(IV)},key,fromHex(CT));return{love:true,msg:new TextDecoder().decode(pt)};}
   const b=await derive(dg,SB);
-  if(hx(b.slice(0,32))===CB)return{love:false};
+  if(hx(b.slice(0,32))===CB){const key=await crypto.subtle.importKey('raw',b.slice(32),'AES-GCM',false,['decrypt']);
+    const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:fromHex(IV2)},key,fromHex(CT2));return{love:false,msg:new TextDecoder().decode(pt)};}
   return null;}
 document.getElementById('code').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('go').click()});
 let busy=false;
@@ -482,10 +486,10 @@ document.getElementById('go').onclick=async()=>{
   busy=true;err.textContent='';let r=null;try{r=await tryCode(ci.value.replace(/\D/g,''))}catch(e){}
   busy=false;if(!r){err.textContent='Wrong code, try again';return;}
   love=r.love;startMusic();
-  if(love){const p=document.createElement('p');p.id='lm';p.style.cssText='max-width:300px;padding:0 24px;line-height:1.6;white-space:pre-line;opacity:0;transition:opacity 1.5s';p.textContent=r.msg;ov.innerHTML='';ov.appendChild(p);}
+  {const p=document.createElement('p');p.id='lm';p.style.cssText='max-width:300px;padding:0 24px;line-height:1.6;white-space:pre-line;opacity:0;transition:opacity 1.5s';p.textContent=r.msg;ov.innerHTML='';ov.appendChild(p);}
   setTimeout(()=>{const m=document.getElementById('lm');if(m)m.style.opacity=1},50);
   let done=false;const fin=()=>{if(done)return;done=true;ov.style.opacity=0;setTimeout(()=>ov.remove(),1000);ready=true;};
-  if(love){setTimeout(fin,9500);setTimeout(()=>{ov.onclick=fin},1500);}else fin();};
+  setTimeout(fin,love?9500:8500);setTimeout(()=>{ov.onclick=fin},1500);};
 requestAnimationFrame(frame);
 </script>
 </body>
